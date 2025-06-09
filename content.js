@@ -82,9 +82,12 @@ class TabSwitcher {
     handleKeydown(e) {
         if (!this.isActive) return;
 
-        // Prevent default behavior for all keys while overlay is active
-        e.preventDefault();
-        e.stopPropagation();
+        // Only prevent default for keys we handle
+        const handledKeys = ['ArrowUp', 'ArrowDown', 'Enter', 'Escape'];
+        if (handledKeys.includes(e.key)) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
 
         switch (e.key) {
             case 'ArrowUp':
@@ -118,16 +121,24 @@ class TabSwitcher {
     }
 
     updateSelection(oldIndex, newIndex) {
-        const items = this.overlay.querySelectorAll('.tab-switcher-item');
-
-        if (items[oldIndex]) {
-            items[oldIndex].classList.remove('selected');
+        // Cache items array to avoid repeated DOM queries
+        if (!this.cachedItems) {
+            this.cachedItems = this.overlay.querySelectorAll('.tab-switcher-item');
         }
 
-        if (items[newIndex]) {
-            items[newIndex].classList.add('selected');
-            // Scroll selected item into view
-            items[newIndex].scrollIntoView({ block: 'nearest' });
+        if (this.cachedItems[oldIndex]) {
+            this.cachedItems[oldIndex].classList.remove('selected');
+        }
+
+        if (this.cachedItems[newIndex]) {
+            this.cachedItems[newIndex].classList.add('selected');
+            // Use requestAnimationFrame for smooth scrolling
+            requestAnimationFrame(() => {
+                this.cachedItems[newIndex].scrollIntoView({
+                    block: 'nearest',
+                    behavior: 'auto' // Remove smooth scrolling for faster response
+                });
+            });
         }
     }
 
@@ -152,6 +163,7 @@ class TabSwitcher {
         if (this.overlay) {
             document.body.removeChild(this.overlay);
             this.overlay = null;
+            this.cachedItems = null; // Clear cached items
         }
 
         if (this.keydownHandler) {
