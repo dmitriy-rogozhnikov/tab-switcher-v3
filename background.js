@@ -10,11 +10,13 @@ chrome.commands.onCommand.addListener((command) => {
 
                 // Get all tabs in current window
                 chrome.tabs.query({ currentWindow: true }, (allTabs) => {
-                    // Send tab data to content script
+                    // Send tab data to content script with error handling
                     chrome.tabs.sendMessage(currentTab.id, {
                         action: 'show-tab-switcher',
                         tabs: allTabs,
                         currentTabId: currentTab.id
+                    }).catch(error => {
+                        console.log('Tab Switcher: Could not send message to content script. Page may not be ready.');
                     });
                 });
             }
@@ -25,9 +27,14 @@ chrome.commands.onCommand.addListener((command) => {
 // Listen for tab switch requests from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'switch-to-tab') {
-        chrome.tabs.update(request.tabId, { active: true }, () => {
-            sendResponse({ success: true });
-        });
+        chrome.tabs.update(request.tabId, { active: true })
+            .then(() => {
+                sendResponse({ success: true });
+            })
+            .catch(error => {
+                console.log('Tab Switcher: Failed to switch tab:', error);
+                sendResponse({ success: false, error: error.message });
+            });
         return true; // Keep message channel open for async response
     }
 });
