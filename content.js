@@ -86,9 +86,10 @@ class TabSwitcher {
         const handledKeys = ['ArrowUp', 'ArrowDown', 'Enter', 'Escape'];
         if (handledKeys.includes(e.key)) {
             e.preventDefault();
-            e.stopPropagation();
+            e.stopImmediatePropagation(); // Stop all other handlers
         }
 
+        // Handle key repeat for faster navigation
         switch (e.key) {
             case 'ArrowUp':
                 this.moveSelection(-1);
@@ -126,20 +127,20 @@ class TabSwitcher {
             this.cachedItems = this.overlay.querySelectorAll('.tab-switcher-item');
         }
 
+        // Batch DOM updates for better performance
         if (this.cachedItems[oldIndex]) {
             this.cachedItems[oldIndex].classList.remove('selected');
         }
 
         if (this.cachedItems[newIndex]) {
             this.cachedItems[newIndex].classList.add('selected');
-            // Use requestAnimationFrame for smooth scrolling
-            requestAnimationFrame(() => {
-                this.cachedItems[newIndex].scrollIntoView({
-                    block: 'nearest',
-                    behavior: 'auto' // Remove smooth scrolling for faster response
-                });
-            });
         }
+
+        // Skip scrollIntoView for now to test if that's causing the slowness
+        // this.cachedItems[newIndex].scrollIntoView({
+        //   block: 'nearest',
+        //   behavior: 'auto'
+        // });
     }
 
     switchToSelectedTab() {

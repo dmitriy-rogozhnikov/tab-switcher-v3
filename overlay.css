@@ -34,7 +34,7 @@
     margin: 2px 0 !important;
     border-radius: 8px !important;
     cursor: pointer !important;
-    transition: background-color 0.001s ease !important; /* Faster transition */
+    /* Remove all transitions for instant response */
     gap: 12px !important;
     min-height: 44px !important;
     box-sizing: border-box !important;
