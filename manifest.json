@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Tab Switcher",
+  "version": "1.0",
+  "description": "Switch between tabs using keyboard shortcuts without mouse",
+  "permissions": [
+    "tabs",
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "commands": {
+    "open-tab-switcher": {
+      "suggested_key": {
+        "default": "Ctrl+E",
+        "mac": "Command+E"
+      },
+      "description": "Open tab switcher overlay"
+    }
+  }
+}
