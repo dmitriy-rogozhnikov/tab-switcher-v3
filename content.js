@@ -4,9 +4,11 @@ class TabSwitcher {
     constructor() {
         this.overlay = null;
         this.tabs = [];
+        this.filteredTabs = [];
         this.currentTabId = null;
         this.selectedIndex = 0;
         this.isActive = false;
+        this.searchInput = null;
 
         // Listen for messages from background script
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -20,6 +22,7 @@ class TabSwitcher {
         if (this.isActive) return; // Prevent multiple overlays
 
         this.tabs = tabs;
+        this.filteredTabs = tabs; // Initially show all tabs
         this.currentTabId = currentTabId;
         this.selectedIndex = tabs.findIndex(tab => tab.id === currentTabId);
         this.isActive = true;
@@ -34,17 +37,42 @@ class TabSwitcher {
         this.overlay.id = 'tab-switcher-overlay';
         this.overlay.className = 'tab-switcher-overlay';
 
+        // Create main container
+        const container = document.createElement('div');
+        container.className = 'tab-switcher-container';
+
+        // Create search input
+        this.searchInput = document.createElement('input');
+        this.searchInput.type = 'text';
+        this.searchInput.placeholder = 'Search tabs...';
+        this.searchInput.className = 'tab-switcher-search';
+        container.appendChild(this.searchInput);
+
         // Create tab list container
         const tabList = document.createElement('div');
         tabList.className = 'tab-switcher-list';
 
-        // Create tab items
-        this.tabs.forEach((tab, index) => {
+        this.renderTabList(tabList);
+
+        container.appendChild(tabList);
+        this.overlay.appendChild(container);
+        document.body.appendChild(this.overlay);
+
+        // Focus search input
+        this.searchInput.focus();
+    }
+
+    renderTabList(tabList) {
+        // Clear existing items
+        tabList.innerHTML = '';
+
+        // Create tab items for filtered tabs
+        this.filteredTabs.forEach((tab, index) => {
             const tabItem = document.createElement('div');
             tabItem.className = 'tab-switcher-item';
             tabItem.dataset.index = index;
 
-            // Add selected class to current tab
+            // Add selected class to selected tab
             if (index === this.selectedIndex) {
                 tabItem.classList.add('selected');
             }
@@ -67,16 +95,39 @@ class TabSwitcher {
             tabList.appendChild(tabItem);
         });
 
-        this.overlay.appendChild(tabList);
-        document.body.appendChild(this.overlay);
-
-        // Focus overlay for keyboard events
-        this.overlay.focus();
+        // Clear cached items since we rebuilt the list
+        this.cachedItems = null;
     }
 
     attachEventListeners() {
         this.keydownHandler = (e) => this.handleKeydown(e);
+        this.inputHandler = (e) => this.handleSearch(e);
+
         document.addEventListener('keydown', this.keydownHandler, true);
+        this.searchInput.addEventListener('input', this.inputHandler);
+    }
+
+    handleSearch(e) {
+        const query = e.target.value.toLowerCase().trim();
+
+        if (query === '') {
+            // Show all tabs if search is empty
+            this.filteredTabs = this.tabs;
+        } else {
+            // Filter tabs by title and URL
+            this.filteredTabs = this.tabs.filter(tab => {
+                const title = (tab.title || '').toLowerCase();
+                const url = (tab.url || '').toLowerCase();
+                return title.includes(query) || url.includes(query);
+            });
+        }
+
+        // Always select first item after filtering
+        this.selectedIndex = 0;
+
+        // Re-render the tab list
+        const tabList = this.overlay.querySelector('.tab-switcher-list');
+        this.renderTabList(tabList);
     }
 
     handleKeydown(e) {
@@ -110,10 +161,10 @@ class TabSwitcher {
         const oldIndex = this.selectedIndex;
         this.selectedIndex += direction;
 
-        // Wrap around selection
+        // Wrap around selection based on filtered tabs
         if (this.selectedIndex < 0) {
-            this.selectedIndex = this.tabs.length - 1;
-        } else if (this.selectedIndex >= this.tabs.length) {
+            this.selectedIndex = this.filteredTabs.length - 1;
+        } else if (this.selectedIndex >= this.filteredTabs.length) {
             this.selectedIndex = 0;
         }
 
@@ -137,14 +188,14 @@ class TabSwitcher {
         }
 
         // Skip scrollIntoView for now to test if that's causing the slowness
-        // this.cachedItems[newIndex].scrollIntoView({
-        //   block: 'nearest',
-        //   behavior: 'auto'
-        // });
+        this.cachedItems[newIndex].scrollIntoView({
+          block: 'nearest',
+          behavior: 'auto'
+        });
     }
 
     switchToSelectedTab() {
-        const selectedTab = this.tabs[this.selectedIndex];
+        const selectedTab = this.filteredTabs[this.selectedIndex];
         if (selectedTab) {
             this.closeOverlay();
 
@@ -154,8 +205,6 @@ class TabSwitcher {
                 tabId: selectedTab.id
             }).catch(error => {
                 console.log('Tab Switcher: Message sending failed, but tab switch may still work');
-                // Fallback: try to switch using window.open (limited functionality)
-                // This won't work for switching tabs, but prevents the error from showing
             });
         }
     }
@@ -164,12 +213,17 @@ class TabSwitcher {
         if (this.overlay) {
             document.body.removeChild(this.overlay);
             this.overlay = null;
-            this.cachedItems = null; // Clear cached items
+            this.cachedItems = null;
+            this.searchInput = null;
         }
 
         if (this.keydownHandler) {
             document.removeEventListener('keydown', this.keydownHandler, true);
             this.keydownHandler = null;
+        }
+
+        if (this.inputHandler) {
+            this.inputHandler = null;
         }
 
         this.isActive = false;
