@@ -67,6 +67,7 @@
     gap: 12px !important;
     min-height: 44px !important;
     box-sizing: border-box !important;
+    /*font-family:'JetBrainsMono', monospace;*/
 }
 
 .tab-switcher-item:hover {
@@ -76,11 +77,10 @@
 .tab-switcher-item.selected {
     background-color: #007AFF !important;
     color: white !important;
-    font-weight: 600 !important;
 }
 
 .tab-switcher-item.selected .tab-switcher-title {
-    font-weight: 600 !important;
+    /*font-weight: 600 !important;*/
 }
 
 .tab-switcher-favicon {

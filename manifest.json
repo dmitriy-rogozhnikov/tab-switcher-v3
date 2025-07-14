@@ -5,7 +5,8 @@
   "description": "Switch between tabs using keyboard shortcuts without mouse",
   "permissions": [
     "tabs",
-    "activeTab"
+    "activeTab",
+    "commands"
   ],
   "background": {
     "service_worker": "background.js"

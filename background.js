@@ -1,9 +1,29 @@
 // Background script for Tab Switcher extension
 
-// Listen for keyboard command
 chrome.commands.onCommand.addListener((command) => {
+    if (command === "do-something") {
+        console.log("Command triggered:", command);
+        // Add your logic here
+    }
+});
+
+// Listen for the keyboard command
+chrome.commands.onCommand.addListener(async (command) => {
     if (command === 'open-tab-switcher') {
-        // Get current active tab
+        // Get the current active tab
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        // Check if we're on a restricted page
+        if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+            // Create a temporary tab for the overlay
+            const newTab = await chrome.tabs.create({
+                url: chrome.runtime.getURL('overlay.html'),
+                active: true
+            });
+            overlayTabId = newTab.id;
+            return;
+        }
+
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs.length > 0) {
                 const currentTab = tabs[0];
@@ -35,6 +55,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 console.log('Tab Switcher: Failed to switch tab:', error);
                 sendResponse({ success: false, error: error.message });
             });
-        return true; // Keep message channel open for async response
+        return true;
+    }
+    if(request.action === 'close-tab-by-id') {
+        chrome.tabs.remove(request.tabId)
+            .then(() => {
+                sendResponse({success: true});
+            })
+            .catch(error => {
+                console.log('Tab Switcher: Failed to close tab:', error);
+                sendResponse({ success: false, error: error.message });
+            });
+        return true;
     }
 });

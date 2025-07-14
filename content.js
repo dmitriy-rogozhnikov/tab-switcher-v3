@@ -7,13 +7,20 @@ class TabSwitcher {
         this.filteredTabs = [];
         this.currentTabId = null;
         this.selectedIndex = 0;
-        this.isActive = false;
+        this.isActive = false; // prevent multiple overlays on different tabs
         this.searchInput = null;
+        this.tabList = null;
 
         // Listen for messages from background script
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.action === 'show-tab-switcher') {
                 this.showOverlay(request.tabs, request.currentTabId);
+            }
+        });
+
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            if (request.action === 'renew-tab-switcher') {
+                this.tabs = request.tabs;
             }
         });
     }
@@ -49,12 +56,12 @@ class TabSwitcher {
         container.appendChild(this.searchInput);
 
         // Create tab list container
-        const tabList = document.createElement('div');
-        tabList.className = 'tab-switcher-list';
+        this.tabList = document.createElement('div');
+        this.tabList.className = 'tab-switcher-list';
 
-        this.renderTabList(tabList);
+        this.renderTabList();
 
-        container.appendChild(tabList);
+        container.appendChild(this.tabList);
         this.overlay.appendChild(container);
         document.body.appendChild(this.overlay);
 
@@ -62,9 +69,9 @@ class TabSwitcher {
         this.searchInput.focus();
     }
 
-    renderTabList(tabList) {
+    renderTabList() {
         // Clear existing items
-        tabList.innerHTML = '';
+        this.tabList.innerHTML = '';
 
         // Create tab items for filtered tabs
         this.filteredTabs.forEach((tab, index) => {
@@ -85,6 +92,8 @@ class TabSwitcher {
                 favicon.style.display = 'none';
             };
 
+
+            // what title?
             // Create title
             const title = document.createElement('span');
             title.className = 'tab-switcher-title';
@@ -92,7 +101,7 @@ class TabSwitcher {
 
             tabItem.appendChild(favicon);
             tabItem.appendChild(title);
-            tabList.appendChild(tabItem);
+            this.tabList.appendChild(tabItem);
         });
 
         // Clear cached items since we rebuilt the list
@@ -126,34 +135,42 @@ class TabSwitcher {
         this.selectedIndex = 0;
 
         // Re-render the tab list
-        const tabList = this.overlay.querySelector('.tab-switcher-list');
-        this.renderTabList(tabList);
+        this.renderTabList();
     }
 
     handleKeydown(e) {
         if (!this.isActive) return;
 
         // Only prevent default for keys we handle
-        const handledKeys = ['ArrowUp', 'ArrowDown', 'Enter', 'Escape'];
+        const handledKeys = ['ArrowUp', 'ArrowDown', 'Enter', 'Escape', 'Ctrl+Backspace'];
         if (handledKeys.includes(e.key)) {
             e.preventDefault();
             e.stopImmediatePropagation(); // Stop all other handlers
         }
 
         // Handle key repeat for faster navigation
-        switch (e.key) {
-            case 'ArrowUp':
-                this.moveSelection(-1);
-                break;
-            case 'ArrowDown':
-                this.moveSelection(1);
-                break;
-            case 'Enter':
-                this.switchToSelectedTab();
-                break;
-            case 'Escape':
-                this.closeOverlay();
-                break;
+        if (e.metaKey && e.key === 'Backspace') {
+            this.closeSelectedTab();
+            const oldIndex = this.selectedIndex;
+            this.moveSelection(1);
+            this.removeTabFromList(oldIndex);
+            this.renderTabList();
+        } else {
+            switch (e.key) {
+                case 'ArrowUp':
+                    this.moveSelection(-1);
+                    break;
+                case 'ArrowDown':
+                    this.moveSelection(1);
+                    break;
+                case 'Enter':
+                    this.switchToSelectedTab();
+                    break;
+                case 'Escape':
+                    this.closeOverlay();
+                    break;
+
+            }
         }
     }
 
@@ -189,8 +206,8 @@ class TabSwitcher {
 
         // Skip scrollIntoView for now to test if that's causing the slowness
         this.cachedItems[newIndex].scrollIntoView({
-          block: 'nearest',
-          behavior: 'auto'
+            block: 'nearest',
+            behavior: 'auto'
         });
     }
 
@@ -215,6 +232,7 @@ class TabSwitcher {
             this.overlay = null;
             this.cachedItems = null;
             this.searchInput = null;
+            this.tabList = null;
         }
 
         if (this.keydownHandler) {
@@ -227,6 +245,20 @@ class TabSwitcher {
         }
 
         this.isActive = false;
+    }
+
+    closeSelectedTab() {
+        const selectedTab = this.filteredTabs[this.selectedIndex];
+        if (selectedTab) {
+            chrome.runtime.sendMessage({
+                action: "close-tab-by-id",
+                tabId: selectedTab.id
+            });
+        }
+    }
+
+    removeTabFromList(oldIndex) {
+        this.tabs.splice(oldIndex, 1);
     }
 }
 
