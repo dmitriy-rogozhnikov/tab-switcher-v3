@@ -79,10 +79,6 @@
     color: white !important;
 }
 
-.tab-switcher-item.selected .tab-switcher-title {
-    /*font-weight: 600 !important;*/
-}
-
 .tab-switcher-favicon {
     width: 16px !important;
     height: 16px !important;
@@ -101,37 +97,6 @@
     margin: 0 !important;
     padding: 0 !important;
     font-weight: 400 !important;
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    .tab-switcher-container {
-        background-color: #2c2c2e !important;
-        border-color: #48484a !important;
-    }
-
-    .tab-switcher-search {
-        background-color: #2c2c2e !important;
-        border-bottom-color: #48484a !important;
-        color: #ffffff !important;
-    }
-
-    .tab-switcher-search::placeholder {
-        color: #999 !important;
-    }
-
-    .tab-switcher-list {
-        color: #ffffff !important;
-    }
-
-    .tab-switcher-item:hover {
-        background-color: #48484a !important;
-    }
-
-    .tab-switcher-item.selected {
-        background-color: #007AFF !important;
-        color: white !important;
-    }
 }
 
 /* Custom scrollbar */

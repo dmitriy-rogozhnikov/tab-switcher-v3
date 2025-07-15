@@ -13,17 +13,6 @@ chrome.commands.onCommand.addListener(async (command) => {
         // Get the current active tab
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-        // Check if we're on a restricted page
-        if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
-            // Create a temporary tab for the overlay
-            const newTab = await chrome.tabs.create({
-                url: chrome.runtime.getURL('overlay.html'),
-                active: true
-            });
-            overlayTabId = newTab.id;
-            return;
-        }
-
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs.length > 0) {
                 const currentTab = tabs[0];

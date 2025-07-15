@@ -67,6 +67,15 @@ class TabSwitcher {
 
         // Focus search input
         this.searchInput.focus();
+
+        // Fixes of styles for some websites that preventing overlays
+        container.style.setProperty('display', 'block', 'important');
+        container.style.setProperty('visibility', 'visible', 'important');
+        container.style.setProperty('z-index', '99999', 'important');
+        container.style.setProperty('height', 'auto', 'important');
+        container.style.setProperty('width', 'auto', 'important');
+        container.style.setProperty('overflow', 'visible', 'important');
+        container.style.setProperty('position', 'fixed', 'important'); // or absolute, depending on your layout
     }
 
     renderTabList() {
@@ -150,11 +159,15 @@ class TabSwitcher {
 
         // Handle key repeat for faster navigation
         if (e.metaKey && e.key === 'Backspace') {
-            this.closeSelectedTab();
-            const oldIndex = this.selectedIndex;
-            this.moveSelection(1);
-            this.removeTabFromList(oldIndex);
-            this.renderTabList();
+            if (this.selectedIndex === this.currentTabId) {
+                this.closeOverlay();
+                this.closeSelectedTab();
+            } else {
+                this.closeSelectedTab();
+                const oldIndex = this.selectedIndex;
+                this.removeTabFromList(oldIndex);
+                this.renderTabList();
+            }
         } else {
             switch (e.key) {
                 case 'ArrowUp':
