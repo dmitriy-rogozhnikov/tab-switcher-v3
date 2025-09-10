@@ -65,7 +65,7 @@
     cursor: pointer !important;
     /* Remove all transitions for instant response */
     gap: 12px !important;
-    min-height: 44px !important;
+    min-height: 24px !important;
     box-sizing: border-box !important;
     /*font-family:'JetBrainsMono', monospace;*/
 }

@@ -1,17 +1,8 @@
 // Background script for Tab Switcher extension
 
-chrome.commands.onCommand.addListener((command) => {
-    if (command === "do-something") {
-        console.log("Command triggered:", command);
-        // Add your logic here
-    }
-});
-
 // Listen for the keyboard command
 chrome.commands.onCommand.addListener(async (command) => {
     if (command === 'open-tab-switcher') {
-        // Get the current active tab
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs.length > 0) {
