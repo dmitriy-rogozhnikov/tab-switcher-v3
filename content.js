@@ -10,11 +10,15 @@ class TabSwitcher {
         this.isActive = false; // prevent multiple overlays on different tabs
         this.searchInput = null;
         this.tabList = null;
+        this.mode = null;
+        this.pageSelectedItem = null;
 
         // Listen for messages from background script
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.action === 'show-tab-switcher') {
-                this.showOverlay(request.tabs, request.currentTabId);
+                console.log('Tab Switcher: Received show-tab-switcher message');
+                console.log(request);
+                this.showOverlay(request.tabs, request.currentTabId, request.bookmarks);
             }
         });
 
@@ -25,14 +29,16 @@ class TabSwitcher {
         });
     }
 
-    showOverlay(tabs, currentTabId) {
+    showOverlay(tabs, currentTabId, bookmarks) {
         if (this.isActive) return; // Prevent multiple overlays
 
         this.tabs = tabs;
-        this.filteredTabs = tabs; // Initially show all tabs
+        this.filteredTabs = tabs;
         this.currentTabId = currentTabId;
         this.selectedIndex = tabs.findIndex(tab => tab.id === currentTabId);
         this.isActive = true;
+        this.bookmarks = bookmarks;
+        this.mode = 'tab-switcher';
 
         this.createOverlay();
         this.attachEventListeners();
@@ -65,6 +71,9 @@ class TabSwitcher {
         this.overlay.appendChild(container);
         document.body.appendChild(this.overlay);
 
+        // Safe focused field for inserter
+        this.pageSelectedItem = document.activeElement;
+
         // Focus search input
         this.searchInput.focus();
 
@@ -82,37 +91,50 @@ class TabSwitcher {
         // Clear existing items
         this.tabList.innerHTML = '';
 
-        // Create tab items for filtered tabs
-        this.filteredTabs.forEach((tab, index) => {
-            const tabItem = document.createElement('div');
-            tabItem.className = 'tab-switcher-item';
-            tabItem.dataset.index = index;
+        if (this.mode === 'inserter') {
+            this.filteredTabs.forEach((bookmark, index) => {
+                const tabItem = document.createElement('div');
+                tabItem.className = 'tab-switcher-item';
+                tabItem.dataset.index = index;
 
-            // Add selected class to selected tab
-            if (index === this.selectedIndex) {
-                tabItem.classList.add('selected');
-            }
+                if (index === this.selectedIndex) {
+                    tabItem.classList.add('selected');
+                }
 
-            // Create favicon
-            const favicon = document.createElement('img');
-            favicon.src = tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="%23ddd"/></svg>';
-            favicon.className = 'tab-switcher-favicon';
-            favicon.onerror = () => {
-                favicon.style.display = 'none';
-            };
+                const title = document.createElement('span');
+                title.className = 'tab-switcher-title';
+                title.textContent = bookmark.title || 'Untitled';
 
+                tabItem.appendChild(title);
+                this.tabList.appendChild(tabItem);
+            })
+        } else {
+            console.log('Tab Switcher: Render tab list with tabs');
+            this.filteredTabs.forEach((tab, index) => {
+                const tabItem = document.createElement('div');
+                tabItem.className = 'tab-switcher-item';
+                tabItem.dataset.index = index;
 
-            // what title?
-            // Create title
-            const title = document.createElement('span');
-            title.className = 'tab-switcher-title';
-            title.textContent = tab.title || 'Untitled';
+                if (index === this.selectedIndex) {
+                    tabItem.classList.add('selected');
+                }
 
-            tabItem.appendChild(favicon);
-            tabItem.appendChild(title);
-            this.tabList.appendChild(tabItem);
-        });
+                const favicon = document.createElement('img');
+                favicon.src = tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="%23ddd"/></svg>';
+                favicon.className = 'tab-switcher-favicon';
+                favicon.onerror = () => {
+                    favicon.style.display = 'none';
+                };
 
+                const title = document.createElement('span');
+                title.className = 'tab-switcher-title';
+                title.textContent = tab.title || 'Untitled';
+
+                tabItem.appendChild(favicon);
+                tabItem.appendChild(title);
+                this.tabList.appendChild(tabItem);
+            });
+        }
         // Clear cached items since we rebuilt the list
         this.cachedItems = null;
     }
@@ -130,20 +152,45 @@ class TabSwitcher {
 
         if (query === '') {
             // Show all tabs if search is empty
-            this.filteredTabs = this.tabs;
+            if (this.mode === 'inserter') {
+                this.filteredTabs = this.bookmarks;
+            } else {
+                this.filteredTabs = this.tabs;
+            }
         } else {
             // Filter tabs by title and URL
-            this.filteredTabs = this.tabs.filter(tab => {
-                const title = (tab.title || '').toLowerCase();
-                const url = (tab.url || '').toLowerCase();
-                return title.includes(query) || url.includes(query);
-            });
+            if (this.mode === 'inserter') {
+                this.filteredTabs = this.bookmarks.filter(bookmark => {
+                    const title = (bookmark.title || '').toLowerCase();
+                    const url = (bookmark.url || '').toLowerCase();
+                    return title.includes(query) || url.includes(query);
+                });
+            } else {
+                this.filteredTabs = this.tabs.filter(tab => {
+                    const title = (tab.title || '').toLowerCase();
+                    const url = (tab.url || '').toLowerCase();
+                    return title.includes(query) || url.includes(query);
+                });
+            }
         }
 
         // Always select first item after filtering
         this.selectedIndex = 0;
 
         // Re-render the tab list
+        this.renderTabList();
+    }
+
+    changeMode() {
+        if (this.mode === 'tab-switcher') {
+            this.mode = 'inserter';
+            this.filteredTabs = this.bookmarks;
+            this.searchInput.value = '';
+        } else {
+            this.mode = 'tab-switcher';
+            this.filteredTabs = this.tabs;
+            this.searchInput.value = '';
+        }
         this.renderTabList();
     }
 
@@ -158,7 +205,7 @@ class TabSwitcher {
         }
 
         // Handle key repeat for faster navigation
-        if (e.metaKey && e.key === 'Backspace') {
+        if (e.metaKey && e.key === 'Backspace' && this.mode === 'tab-switcher') {
             if (this.selectedIndex === this.currentTabId) {
                 this.closeOverlay();
                 this.closeSelectedTab();
@@ -176,8 +223,13 @@ class TabSwitcher {
                 case 'ArrowDown':
                     this.moveSelection(1);
                     break;
+
+                case 'ArrowLeft':
+                case 'ArrowRight':
+                    this.changeMode();
+                    break;
                 case 'Enter':
-                    this.switchToSelectedTab();
+                    this.processEnter();
                     break;
                 case 'Escape':
                     this.closeOverlay();
@@ -224,18 +276,27 @@ class TabSwitcher {
         });
     }
 
-    switchToSelectedTab() {
-        const selectedTab = this.filteredTabs[this.selectedIndex];
-        if (selectedTab) {
+    processEnter() {
+        if (this.mode === 'inserter') {
             this.closeOverlay();
+            console.log('Tab Switcher: Enter pressed in inserter mode');
+            console.log(this.filteredTabs);
+            this.pageSelectedItem.value = this.filteredTabs[this.selectedIndex].title;
+            this.pageSelectedItem.focus();
 
-            // Send message to background script to switch tab with error handling
-            chrome.runtime.sendMessage({
-                action: 'switch-to-tab',
-                tabId: selectedTab.id
-            }).catch(error => {
-                console.log('Tab Switcher: Message sending failed, but tab switch may still work');
-            });
+        } else {
+            const selectedTab = this.filteredTabs[this.selectedIndex];
+            if (selectedTab) {
+                this.closeOverlay();
+
+                // Send message to background script to switch tab with error handling
+                chrome.runtime.sendMessage({
+                    action: 'switch-to-tab',
+                    tabId: selectedTab.id
+                }).catch(error => {
+                    console.log('Tab Switcher: Message sending failed, but tab switch may still work');
+                });
+            }
         }
     }
 

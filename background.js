@@ -1,28 +1,75 @@
-// Background script for Tab Switcher extension
 
-// Listen for the keyboard command
-chrome.commands.onCommand.addListener(async (command) => {
+let tabs = [];
+let bookmarks = [];
+let completedTasks = 0;
+let currentTabId = null;
+
+console.log('Background script loaded');
+
+chrome.commands.onCommand.addListener((command) => {
     if (command === 'open-tab-switcher') {
+        console.log('Command triggered: open-tab-switcher'); // Log command trigger
 
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs.length > 0) {
-                const currentTab = tabs[0];
+        // Reset variables
+        tabs = [];
+        bookmarks = [];
+        completedTasks = 0;
+        currentTabId = null;
+
+        // Get current tab
+        chrome.tabs.query({ active: true, currentWindow: true }, (currentTabs) => {
+            if (currentTabs.length > 0) {
+                currentTabId = currentTabs[0].id;
+
+                chrome.bookmarks.getTree((bookmarkTreeNodes) => {
+                    const rootNode = bookmarkTreeNodes[0];
+                    const allBookmarks = rootNode.children.find(node => node.title === 'Bookmarks' && !node.url);
+                    const strFolder = allBookmarks.children.find(node => node.title === 'str' && !node.url);
+
+                    bookmarks = strFolder
+                        ? strFolder.children
+                            .filter(node => node.url)
+                            .map(bookmark => ({
+                                title: bookmark.title,
+                                url: bookmark.url
+                            }))
+                        : [];
+                    completedTasks++;
+                    sendResults();
+                });
 
                 // Get all tabs in current window
                 chrome.tabs.query({ currentWindow: true }, (allTabs) => {
-                    // Send tab data to content script with error handling
-                    chrome.tabs.sendMessage(currentTab.id, {
-                        action: 'show-tab-switcher',
-                        tabs: allTabs,
-                        currentTabId: currentTab.id
-                    }).catch(error => {
-                        console.log('Tab Switcher: Could not send message to content script. Page may not be ready.');
-                    });
+                    tabs = allTabs
+                    completedTasks++;
+                    sendResults();
                 });
+
+                // Get bookmarks from 'str' folder
+
+            } else {
+                console.log('Tab Switcher: No active tab found.');
             }
         });
+
+        // Send results to content script when both tasks are complete
+        function sendResults() {
+            if (completedTasks === 2 && currentTabId !== null) {
+                chrome.tabs.sendMessage(currentTabId, {
+                    action: 'show-tab-switcher',
+                    tabs: tabs,
+                    bookmarks: bookmarks,
+                    currentTabId: currentTabId
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.log('Tab Switcher: Could not send message to content script:', chrome.runtime.lastError.message);
+                    }
+                });
+            }
+        }
     }
 });
+
 
 // Listen for tab switch requests from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
